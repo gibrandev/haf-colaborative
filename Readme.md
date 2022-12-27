@@ -1,8 +1,10 @@
 # HOW TO USE
 
-`const engine = require('./libs/cfilter');`
+```javascript
+const engine = require('./libs/cfilter');
+```
 
-```nodejs
+```javascript
 const data = [
     [1,0,5,1,0,0,2,0,0], //USER 1
     [0,0,5,2,3,3,2,0,0], //USER 2
