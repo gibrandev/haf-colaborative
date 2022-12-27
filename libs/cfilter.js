@@ -31,8 +31,15 @@ const kalkulasi = (data) => {
 }
 
 const cfilter = (data) => {
-    const result = _.values(_.invert(kalkulasi(data)));
-    
+    const source = _.values(_.invert(kalkulasi(data)));
+    const result = [];
+    let i = 0;
+    for (const key in source) {
+        if (Object.hasOwnProperty.call(source, key)) {
+            result[i] = source[key].replace("i", "")*1;
+            i++;
+        }
+    }
     return result;
 }
 
