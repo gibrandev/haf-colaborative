@@ -9,7 +9,7 @@ const data = [
 ];
 
 
-const itemRekomendasi = engine.cfilter(data);
+const itemRekomendasi = engine.cfilter(data,1);
 
 console.log("Item Rekomendasi: ");
 console.log(itemRekomendasi);
