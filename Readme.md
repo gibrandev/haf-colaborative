@@ -1,5 +1,15 @@
 # HOW TO USE
 
+### Installation
+```bash
+npm install
+```
+Run Test
+```sh
+node ./examples/test.js
+```
+
+### This is code example
 ```javascript
 const engine = require('./libs/cfilter');
 ```
