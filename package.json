@@ -10,6 +10,7 @@
   "license": "MIT",
   "dependencies": {
     "lodash": "^4.17.21",
-    "mathjs": "^11.5.0"
+    "mathjs": "^11.5.0",
+    "prompt-sync": "^4.2.0"
   }
 }
