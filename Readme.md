@@ -8,6 +8,10 @@ Run Test
 ```sh
 node ./examples/test.js
 ```
+Or with some inputs
+```sh
+node ./examples/test2.js
+```
 
 ### This is code example
 ```javascript
