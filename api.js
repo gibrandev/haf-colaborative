@@ -86,22 +86,30 @@ app.post('/api/register', async (req, res) => {
 
 app.get('/api/user', async (req, res) => {
     var token = req.headers.authorization;
-    const cleanToken = token.replace('Bearer ','');
-    var decoded = jwt.verify(cleanToken, JwtKey);
-
-    await client.connect();
-    const db = client.db(dbName);
-    const collection = db.collection('users');
-    const user = await collection.findOne({_id: ObjectId(decoded.sub)});
-
-    if (!user) {
+    if (token) {
+        const cleanToken = token.replace('Bearer ','');
+        var decoded = jwt.verify(cleanToken, JwtKey);
+    
+        await client.connect();
+        const db = client.db(dbName);
+        const collection = db.collection('users');
+        const user = await collection.findOne({_id: ObjectId(decoded.sub)});
+    
+        if (!user) {
+            res.status(401).send({
+                message: "User invalid"
+            });
+        }
+    
+        delete user.password;
+        res.send(user);
+        return
+    } else {
         res.status(401).send({
             message: "User invalid"
         });
+        return
     }
-
-    delete user.password;
-    res.send(user)
 });
 
 app.get('/api/recommendation', async (req, res) => {
