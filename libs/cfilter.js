@@ -1,7 +1,7 @@
 const _ = require('lodash');
 const {round} = require('mathjs');
 const kalkulasi = (data, z = 1) => {
-
+    
     const itemRecords = data[0].length;
     const userRecords = data.length;
     const result = {};

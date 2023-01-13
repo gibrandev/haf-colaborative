@@ -6,6 +6,7 @@ var bcrypt = require('bcryptjs');
 var jwt = require('jsonwebtoken');
 var bodyParser = require('body-parser');
 var _ = require("lodash");
+const engine = require('./index');
 
 const { MongoClient, ObjectId } = require('mongodb');
 
@@ -35,7 +36,7 @@ app.post('/api/login', async (req, res) => {
     await client.connect();
     const db = client.db(dbName);
     const collection = db.collection('users');
-    const user = await collection.findOne({username: req.body.username});
+    const user = await collection.findOne({email: req.body.email});
 
     var token = jwt.sign({ sub: user._id }, JwtKey);
 
@@ -50,11 +51,19 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/register', async (req, res) => {
     const db = client.db(dbName);
     const model = db.collection("users");
-    var hash = bcrypt.hashSync('12345678', 8);
+
+    const checkUser = await model.findOne({email: req.body.email});
+    if (checkUser) {
+        res.status(400).send({
+            message: "Email has already registered"
+        });
+        return
+    }
+
+    var hash = bcrypt.hashSync(req.body.password, 8);
     const user = {
-        name: "Gibran Dimasagung",
-        email: "gibrandev@gmail.com",
-        username: "gibrandev",
+        name: req.body.name,
+        email: req.body.email,
         password: hash
     }
     const result = await model.insertOne(user);
@@ -90,43 +99,18 @@ app.get('/api/user', async (req, res) => {
 });
 
 app.get('/api/recommendation', async (req, res) => {
-    // var token = req.headers.authorization;
-    // if (token) {
-    //     const user = await getUserId(token);
+    var token = req.headers.authorization;
+    if (token) {
+        const user = await getUserId(token);
 
-    //     await client.connect();
-    //     const db = client.db(dbName);
-    //     const collection = db.collection('recommendations');
+        const data = await getUserRecommendation(user);
 
-    //     const findResult = await collection.find({ category: { $in: category }, userId: ObjectId(user) }).toArray();
-    //     await client.close();
-
-    //     var data = [];
-
-    //     category.forEach((cat) => {
-    //         const check = _.find(findResult, { 'category': cat });
-    //         if (check) {
-    //             data.push({
-    //                 category: check.category,
-    //                 hits: check.hits
-    //             });
-    //         } else {
-    //             data.push({
-    //                 category: cat,
-    //                 hits: 0
-    //             });
-    //         }
-    //     });
-
-    //     res.status(200).send(data);
-    // } else {
-    //     res.status(401).send({
-    //         message: "User invalid"
-    //     });
-    // }
-
-    const data = await getUserRecommendation();
-    res.send(data);
+        res.status(200).send(data);
+    } else {
+        res.status(401).send({
+            message: "User invalid"
+        });
+    }
 });
 
 app.get('/api/latest', async (req, res) => {
@@ -205,23 +189,36 @@ const getUserId = async (token) => {
     }
 }
 
-const getUserRecommendation = async () => {
+const getUserRecommendation = async (userId) => {
     await client.connect();
     const db = client.db(dbName);
     const collection = db.collection('users');
 
-    var users = await collection.find({}).toArray();
+    var users = await collection.find({_id:{$ne: ObjectId(userId)}}).toArray();
 
     var recommendations = [];
+
+    const me = await db.collection('recommendations').find({ userId: ObjectId(userId) }).toArray();
+    recommendations.push(mappingCategoryUser(me));
 
     for (const user of users) {
         const findResult = await db.collection('recommendations').find({ userId: ObjectId(user._id) }).toArray();
         recommendations.push(mappingCategoryUser(findResult));
     }
 
+    const items = engine.cfilter(recommendations,1);
+
+    var articles = [];
+
+    for (const item of items) {
+        const slugCategory = category[item-1];
+        const findResult = await db.collection('posts').findOne({appName: 'indotnesia', 'category.slug': slugCategory}, { sort: { postCreatedTime: -1 }});
+        articles.push(findResult);
+    }
+
     await client.close();
 
-    return recommendations;
+    return articles;
 }
 
 const mappingCategoryUser = (categories) => {
@@ -240,5 +237,7 @@ const mappingCategoryUser = (categories) => {
             });
         }
     }
-    return data;
+
+    const newData = data.map(cat => cat.hits);
+    return newData;
 }
