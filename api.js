@@ -38,6 +38,13 @@ app.post('/api/login', async (req, res) => {
     const collection = db.collection('users');
     const user = await collection.findOne({email: req.body.email});
 
+    if (!user) {
+        res.status(401).send({
+            message: "User invalid"
+        });
+        return
+    }
+
     var token = jwt.sign({ sub: user._id }, JwtKey);
 
     delete user.password
@@ -94,7 +101,6 @@ app.get('/api/user', async (req, res) => {
     }
 
     delete user.password;
-    await client.close();
     res.send(user)
 });
 
