@@ -189,7 +189,7 @@ const handlePushRecommendation = async (token, category) => {
 const listUserRecommendation = async () => {
     const db = client.db(dbName);
     const collection = db.collection('users');
-    const users = await collection.find().sort({name: -1}).project({name: 1}).toArray();
+    const users = await collection.find().sort({name: -1}).project({name: 1, email: 1}).toArray();
     const data = [];
     var index = 0;
     for (const user of users) {
