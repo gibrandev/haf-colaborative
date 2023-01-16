@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
 const port = 3001;
@@ -10,7 +11,7 @@ const engine = require('./index');
 
 const { MongoClient, ObjectId } = require('mongodb');
 
-const url = 'mongodb://127.0.0.1:27017';
+const url = `mongodb://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${process.env.DB_HOSTNAME}:${process.env.DB_PORT}/${process.env.DB_AUTH}`;
 const client = new MongoClient(url);
 
 const dbName = 'multisite_mdb';
