@@ -21,6 +21,12 @@ const category = [
     'aktual', 'sosok', 'pelesiran', 'gaya-hidup'
 ];
 
+(async () => {
+    await client.connect();
+})().catch(e => {
+    // Deal with the fact the chain failed
+});
+
 app.use(bodyParser.json() );
 app.use(bodyParser.urlencoded({
     extended: true
@@ -33,7 +39,6 @@ app.get('/', (req, res) => {
 });
 
 app.post('/api/login', async (req, res) => {
-    await client.connect();
     const db = client.db(dbName);
     const collection = db.collection('users');
     const user = await collection.findOne({email: req.body.email});
@@ -45,13 +50,18 @@ app.post('/api/login', async (req, res) => {
         return
     }
 
-    var token = jwt.sign({ sub: user._id }, JwtKey);
+    if (bcrypt.compareSync(req.body.password, user.password)) {
+        var token = jwt.sign({ sub: user._id }, JwtKey);
 
-    delete user.password
-    await client.close();
-    res.send({
-        token: token,
-        user: user
+        delete user.password
+        res.send({
+            token: token,
+            user: user
+        });
+        return
+    }
+    res.status(400).send({
+        message: "Email or password invalid"
     });
 });
 
@@ -90,7 +100,6 @@ app.get('/api/user', async (req, res) => {
         const cleanToken = token.replace('Bearer ','');
         var decoded = jwt.verify(cleanToken, JwtKey);
     
-        await client.connect();
         const db = client.db(dbName);
         const collection = db.collection('users');
         const user = await collection.findOne({_id: ObjectId(decoded.sub)});
@@ -112,38 +121,18 @@ app.get('/api/user', async (req, res) => {
     }
 });
 
-app.get('/api/recommendation', async (req, res) => {
-    var token = req.headers.authorization;
-    if (token) {
-        const user = await getUserId(token);
-
-        const data = await getUserRecommendation(user);
-
-        res.status(200).send(data);
-    } else {
-        res.status(401).send({
-            message: "User invalid"
-        });
-    }
-});
-
 app.get('/api/latest', async (req, res) => {
-    await client.connect();
     const db = client.db(dbName);
     const collection = db.collection('posts');
     const findResult = await collection.find({appName: 'indotnesia'}).limit(20).sort({postCreatedTime: -1}).toArray();
-    await client.close();
     res.send(findResult);
 });
 
 app.get('/api/category/:slug', async (req, res) => {
     const category = req.params.slug;
-
-    await client.connect();
     const db = client.db(dbName);
     const collection = db.collection('posts');
     const findResult = await collection.find({appName: 'indotnesia', 'category.slug': category}).limit(20).sort({postCreatedTime: -1}).toArray();
-    await client.close();
     var token = req.headers.authorization;
     if (token) {
         handlePushRecommendation(token, category);
@@ -152,15 +141,18 @@ app.get('/api/category/:slug', async (req, res) => {
 });
 
 app.get('/api/:slug', async (req, res) => {
-    await client.connect();
     const db = client.db(dbName);
     const collection = db.collection('posts');
-    const findResult = await collection.findOne({slug: req.params.slug});
-    await client.close();
+    var findResult = await collection.findOne({slug: req.params.slug});
     var token = req.headers.authorization;
+    var recommendations = [];
     if (token) {
         handlePushRecommendation(token, findResult.category.slug);
+        const user = await getUserId(token);
+        recommendations = await getUserRecommendation(user);
     }
+
+    findResult = {...findResult, ...{recommendations: recommendations} }
     res.send(findResult);
 });
 
@@ -170,7 +162,6 @@ app.listen(port, () => {
 
 const handlePushRecommendation = async (token, category) => {
     const user = await getUserId(token);
-    await client.connect();
     const db = client.db(dbName);
     if (user) {
         const recommendation = await db.collection('recommendations').findOne({category: category, userId: ObjectId(user)});
@@ -184,7 +175,6 @@ const handlePushRecommendation = async (token, category) => {
             await db.collection('recommendations').updateOne({category: category, userId: ObjectId(user)}, {$set:{hits: recommendation.hits + 1}}, {});
         }
     }
-    await client.close();
     return true;
 }
 
@@ -192,10 +182,8 @@ const getUserId = async (token) => {
     const newToken = token;
     const cleanToken = newToken.replace('Bearer ','');
     var decoded = jwt.verify(cleanToken, JwtKey);
-    await client.connect();
     const db = client.db(dbName);
     const user = await db.collection('users').findOne({_id: ObjectId(decoded.sub)});
-    await client.close();
     if (user) {
         return user._id
     } else {
@@ -204,7 +192,6 @@ const getUserId = async (token) => {
 }
 
 const getUserRecommendation = async (userId) => {
-    await client.connect();
     const db = client.db(dbName);
     const collection = db.collection('users');
 
@@ -226,11 +213,16 @@ const getUserRecommendation = async (userId) => {
 
     for (const item of items) {
         const slugCategory = category[item-1];
-        const findResult = await db.collection('posts').findOne({appName: 'indotnesia', 'category.slug': slugCategory}, { sort: { postCreatedTime: -1 }});
-        articles.push(findResult);
+        const options = [
+            { $match: { "category.slug": slugCategory, appName: 'indotnesia' } },
+            { $sample: { size: 1 }}
+        ];
+        const projection = {
+            appName: 1, title: 1, slug: 1, imagePath: 1
+        }
+        const findResult = await db.collection('posts').aggregate(options).project(projection).toArray();
+        articles = [...articles, ...findResult]
     }
-
-    await client.close();
 
     return articles;
 }
