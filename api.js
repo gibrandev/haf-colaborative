@@ -88,7 +88,6 @@ app.post('/api/register', async (req, res) => {
 
     var token = jwt.sign({ sub: result.insertedId }, JwtKey);
 
-    await client.close();
     res.send({
         message: 'User has registered',
         token: token
