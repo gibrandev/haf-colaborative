@@ -200,16 +200,19 @@ const listUserRecommendation = async () => {
                 const here = await db.collection('recommendations').find({ userId: ObjectId(user1._id) }).toArray();
                 recommendations.push(mappingCategoryUser(here));
             }
-
         }
 
         const items = engine.cfilter(recommendations,index);
         var categories = [];
+        var category_counts = [];
         for (const item of items) {
+            const cat_name = category[item-1];
             categories.push(category[item-1]);
+            const count = await db.collection("recommendations").findOne({category: cat_name, userId: ObjectId(user._id)});
+            category_counts.push(count);
         }
 
-        data.push({...user, ...{recommendations: items, categories: categories}});
+        data.push({...user, ...{recommendations: items, categories: categories, category_counts: category_counts}});
         index = index + 1;
     }
     return data;
