@@ -149,12 +149,20 @@ app.get('/api/:slug', async (req, res) => {
     if (token) {
         handlePushRecommendation(token, findResult.category.slug);
         const user = await getUserId(token);
-        recommendations = await getUserRecommendation(user);
+        const data = await listUserRecommendation();
+        const me = _.find(data, { '_id': user });
+        recommendations = await getArticleRecommendation(me.categories);
     }
 
     findResult = {...findResult, ...{recommendations: recommendations} }
     res.send(findResult);
 });
+
+app.get('/api/recommendation/user', async (req, res) => {
+    const data = await listUserRecommendation();
+    res.send(data);
+});
+
 
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
@@ -176,6 +184,35 @@ const handlePushRecommendation = async (token, category) => {
         }
     }
     return true;
+}
+
+const listUserRecommendation = async () => {
+    const db = client.db(dbName);
+    const collection = db.collection('users');
+    const users = await collection.find().sort({name: -1}).project({name: 1}).toArray();
+    const data = [];
+    var index = 0;
+    for (const user of users) {
+        var recommendations = [];
+
+        for (const user1 of users) {
+            if (user1._id !== user._id) {
+                const here = await db.collection('recommendations').find({ userId: ObjectId(user1._id) }).toArray();
+                recommendations.push(mappingCategoryUser(here));
+            }
+
+        }
+
+        const items = engine.cfilter(recommendations,index);
+        var categories = [];
+        for (const item of items) {
+            categories.push(category[item-1]);
+        }
+
+        data.push({...user, ...{recommendations: items, categories: categories}});
+        index = index + 1;
+    }
+    return data;
 }
 
 const getUserId = async (token) => {
@@ -215,6 +252,24 @@ const getUserRecommendation = async (userId) => {
         const slugCategory = category[item-1];
         const options = [
             { $match: { "category.slug": slugCategory, appName: 'indotnesia' } },
+            { $sample: { size: 1 }}
+        ];
+        const projection = {
+            appName: 1, title: 1, slug: 1, imagePath: 1, category: 1
+        }
+        const findResult = await db.collection('posts').aggregate(options).project(projection).toArray();
+        articles = [...articles, ...findResult]
+    }
+
+    return articles;
+}
+
+const getArticleRecommendation = async (items) => {
+    const db = client.db(dbName);
+    var articles = [];
+    for (const item of items) {
+        const options = [
+            { $match: { "category.slug": item, appName: 'indotnesia' } },
             { $sample: { size: 1 }}
         ];
         const projection = {
