@@ -218,7 +218,7 @@ const getUserRecommendation = async (userId) => {
             { $sample: { size: 1 }}
         ];
         const projection = {
-            appName: 1, title: 1, slug: 1, imagePath: 1
+            appName: 1, title: 1, slug: 1, imagePath: 1, category: 1
         }
         const findResult = await db.collection('posts').aggregate(options).project(projection).toArray();
         articles = [...articles, ...findResult]
