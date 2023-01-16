@@ -209,7 +209,15 @@ const listUserRecommendation = async () => {
             const cat_name = category[item-1];
             categories.push(category[item-1]);
             const count = await db.collection("recommendations").findOne({category: cat_name, userId: ObjectId(user._id)});
-            category_counts.push(count);
+            if (count) {
+                category_counts.push(count);
+            } else {
+                category_counts.push({
+                    _id: (Math.random() + 1).toString(36).substring(7),
+                    category: cat_name,
+                    hits: 0
+                });
+            }
         }
 
         data.push({...user, ...{recommendations: items, categories: categories, category_counts: category_counts}});
